@@ -17,7 +17,7 @@ package com.databricks.spark.avro
 
 import org.apache.avro.Schema
 import org.apache.avro.file.DataFileReader
-import org.apache.avro.generic.{GenericRecord, GenericDatumReader}
+import org.apache.avro.generic.{GenericData, GenericRecord, GenericDatumReader}
 import org.apache.avro.mapred.FsInput
 
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -51,13 +51,30 @@ case class AvroRelation(location: String)(@transient val sqlContext: SQLContext)
 
     baseRdd.map { record =>
       val values = (0 until schema.fields.size).map { i =>
-        record._1.datum().get(i) match {
-          case u: org.apache.avro.util.Utf8 => u.toString
-          case other => other
-        }
+        castDataType(record._1.datum().get(i))
       }
 
       Row.fromSeq(values)
+    }
+  }
+
+  private def castDataType(t: Any): Any = {
+    t match {
+      case u: org.apache.avro.util.Utf8 => u.toString
+      case u: java.util.HashMap[_, _] =>
+        u.map{ case (k, v) => (k.toString, castDataType(v))}
+      case u: GenericData.Array[_] => 
+        (0 until u.size).map { i =>
+          castDataType(u.get(i))
+        }
+      case u: GenericData.Record =>
+        val m = new scala.collection.mutable.HashMap[String, Any]
+        val fields = u.getSchema.getFields
+        val values = (0 until fields.size).map { i =>
+          m(fields.get(i).name) = castDataType(u.get(i))
+        }
+        m
+      case other => other
     }
   }
 
@@ -112,6 +129,13 @@ case class AvroRelation(location: String)(@transient val sqlContext: SQLContext)
         case other =>
           sys.error(s"Union types with anything other than null not supported: $other")
       }
+
+      // Only supports single type mapping
+      case MAP => 
+        val schemaType = toSqlType(avroSchema.getValueType)
+        SchemaType(
+          MapType(StringType, schemaType.dataType, schemaType.nullable),
+          nullable = false)
 
       case other => sys.error(s"Unsupported type $other")
     }
