@@ -17,6 +17,7 @@ package com.databricks.spark.avro;
 
 import org.apache.spark.sql.api.java.JavaSQLContext;
 import org.apache.spark.sql.api.java.JavaSchemaRDD;
+import org.apache.spark.sql.SchemaRDD;
 
 /**
  * A collection of static functions for working with Avro in Spark SQL
@@ -26,5 +27,10 @@ public class AvroUtils {
     public static JavaSchemaRDD avroFile(JavaSQLContext sqlContext, String path) {
         AvroRelation relation = new AvroRelation(path, sqlContext.sqlContext());
         return sqlContext.baseRelationToSchemaRDD(relation);
+    }
+
+    /** Saves the specified SchemaRDD as avro file in provided directory. */
+    public static void saveAsAvroFile(SchemaRDD schemaRDD, String path) {
+        AvroSaver.save(schemaRDD, path);
     }
 }

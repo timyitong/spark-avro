@@ -29,6 +29,6 @@ package object avro {
 
   // TODO: Implement me.
   implicit class AvroSchemaRDD(schemaRDD: SchemaRDD) {
-    def saveAsAvroFile(path: String): Unit = ???
+    def saveAsAvroFile(path: String): Unit = AvroSaver.save(schemaRDD, path)
   }
 }
